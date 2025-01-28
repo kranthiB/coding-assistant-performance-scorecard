@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: frontend
+    container_name: coding-assistant-performance-scorecard-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_BASE_URL=http://localhost:8080
+
+  backend:
+    image: backend
+    container_name: coding-assistant-performance-scorecard-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: coding-assistant-scorecard-postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: coding_assistant
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /data/postgres
+    volumes:
+      - postgres_data:/data/postgres
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-coding_assistant}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: coding-assistant-postgres-data
