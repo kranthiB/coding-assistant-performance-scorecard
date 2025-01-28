@@ -726,38 +726,42 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
 }) => {
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const currentTabs = categoryTabs[category as keyof typeof categoryTabs] || [];
 
-  // Initialize scores and notes from toolDetails
+  // Initialize scores and notes from toolDetails for all categories
   useEffect(() => {
-    const categoryData = toolDetails.assessment.categories.find(
+    const initialScores: Record<string, Record<string, number>> = {};
+    
+    toolDetails.assessment.categories.forEach(categoryData => {
+      try {
+        const parsedData = JSON.parse(categoryData.score);
+        initialScores[categoryData.name.toLowerCase()] = parsedData.score || {};
+      } catch (e) {
+        console.error(`Error parsing category data for ${categoryData.name}:`, e);
+        initialScores[categoryData.name.toLowerCase()] = {};
+      }
+    });
+    
+    setAllScores(initialScores);
+
+    // Set initial notes for current category
+    const currentCategoryData = toolDetails.assessment.categories.find(
       cat => cat.name.toLowerCase() === category
     );
     
-    if (categoryData) {
+    if (currentCategoryData) {
       try {
-        const parsedData = JSON.parse(categoryData.score);
-        setScores(parsedData.score || {});
+        const parsedData = JSON.parse(currentCategoryData.score);
         setNotes(parsedData.notes || '');
-        
-        console.log('Initialized category data:', {
-          category,
-          scores: parsedData.score,
-          notes: parsedData.notes
-        });
       } catch (e) {
-        console.error('Error parsing category data:', e);
-        setScores({});
+        console.error('Error parsing notes:', e);
         setNotes('');
       }
-    } else {
-      setScores({});
-      setNotes('');
     }
-  }, [category, toolDetails]);
+  }, [toolDetails.assessment.categories]);
 
   // Update active tab when subcategory changes
   useEffect(() => {
@@ -822,19 +826,17 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   };
 
   const handleScoreChange = (event: React.SyntheticEvent, newValue: number | null) => {
-    console.log('before')
-    console.log(scores)
     const subcategoryKey = getCurrentSubcategoryKey();
-    const newScores = {
-      ...scores,
-      [subcategoryKey]: newValue || 0
-    };
     
-    console.log('subcateogry')
-    console.log(subcategory)
-    console.log(newScores)
-
-    setScores(newScores);
+    // Update scores for the current category
+    setAllScores(prevScores => ({
+      ...prevScores,
+      [category]: {
+        ...(prevScores[category] || {}),
+        [subcategoryKey]: newValue || 0
+      }
+    }));
+    
     setError(null);
 
     // Update the category data in toolDetails
@@ -850,7 +852,10 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         const currentData = JSON.parse(currentCategory.score);
         const updatedScore = {
           notes: currentData.notes,
-          score: newScores
+          score: {
+            ...(allScores[category] || {}),
+            [subcategoryKey]: newValue || 0
+          }
         };
         
         updatedCategories[categoryIndex] = {
@@ -859,7 +864,8 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         };
 
         // Calculate new category average
-        const categoryAverage = Object.values(newScores).reduce((a, b) => a + b, 0) / Object.values(newScores).length;
+        const categoryScores = Object.values(updatedScore.score);
+        const categoryAverage = categoryScores.reduce((a, b) => a + b, 0) / categoryScores.length;
 
         // Update assessment scores
         const updatedAssessment = {
@@ -893,7 +899,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
 
   const handleNext = async () => {
     const subcategoryKey = getCurrentSubcategoryKey();
-    const currentScore = scores[subcategoryKey] || 0;
+    const currentScore = allScores[category]?.[subcategoryKey] || 0;
 
     if (currentScore === 0) {
       setError('Please provide a score before proceeding');
@@ -911,10 +917,9 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         const currentCategory = updatedCategories[categoryIndex];
         
         // Update the current category's score
-        const currentData = JSON.parse(currentCategory.score);
         const updatedScore = {
           notes,
-          score: scores
+          score: allScores[category] || {}
         };
         
         updatedCategories[categoryIndex] = {
@@ -923,7 +928,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         };
 
         // Calculate category average
-        const categoryScores = Object.values(scores);
+        const categoryScores = Object.values(updatedScore.score);
         const categoryAverage = categoryScores.reduce((a, b) => a + b, 0) / categoryScores.length;
 
         // Update the assessment with new scores
@@ -965,16 +970,71 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const subcategoryKey = getCurrentSubcategoryKey();
-    const currentScore = scores[subcategoryKey] || 0;
+    const currentScore = allScores[category]?.[subcategoryKey] || 0;
     
     if (currentScore === 0) {
       setError('Please provide a score before proceeding');
       return;
     }
 
-    onScoreSubmit(currentScore, notes);
+    try {
+      // Find and update the current category data
+      const categoryIndex = toolDetails.assessment.categories.findIndex(
+        cat => cat.name.toLowerCase() === category
+      );
+
+      if (categoryIndex !== -1) {
+        const updatedCategories = [...toolDetails.assessment.categories];
+        const currentCategory = updatedCategories[categoryIndex];
+        
+        // Prepare the final score data for the current category
+        const finalScore = {
+          notes,
+          score: allScores[category] || {}
+        };
+        
+        updatedCategories[categoryIndex] = {
+          ...currentCategory,
+          score: JSON.stringify(finalScore)
+        };
+
+        // Calculate the final category average
+        const categoryScores = Object.values(allScores[category] || {});
+        const categoryAverage = categoryScores.length > 0
+          ? categoryScores.reduce((a, b) => a + b, 0) / categoryScores.length
+          : 0;
+
+        // Update the assessment with final scores
+        const updatedAssessment = {
+          ...toolDetails.assessment,
+          categories: updatedCategories,
+          score: {
+            ...toolDetails.assessment.score,
+            [category]: categoryAverage,
+            total: calculateTotalScore(updatedCategories)
+          }
+        };
+
+        // Calculate the updated total score
+        const newTotalScore = calculateTotalScore(updatedCategories);
+
+        // Update tool details with the final assessment data
+        const updatedToolDetails = {
+          ...toolDetails,
+          assessment: updatedAssessment,
+          score: newTotalScore,
+          lastAssessment: new Date().toISOString()
+        };
+
+        // Submit final assessment data
+        await onScoreSubmit(currentScore, notes);
+      }
+    } catch (error) {
+      console.error('Error submitting assessment:', error);
+      setError('An error occurred while submitting your assessment. Please try again.');
+    }
   };
 
   return (
@@ -1019,7 +1079,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         {currentTabs.map((tab, index) => {
           const criteriaData = getCriteriaForTab();
           const subcategoryKey = getCurrentSubcategoryKey();
-          const currentScore = scores[subcategoryKey] || 0;
+          const currentScore = allScores[category]?.[subcategoryKey] || 0;
 
           return (
             <TabPanel key={index} value={activeTab} index={index}>
