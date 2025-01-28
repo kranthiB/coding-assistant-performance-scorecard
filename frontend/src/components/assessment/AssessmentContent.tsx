@@ -822,12 +822,18 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   };
 
   const handleScoreChange = (event: React.SyntheticEvent, newValue: number | null) => {
+    console.log('before')
+    console.log(scores)
     const subcategoryKey = getCurrentSubcategoryKey();
     const newScores = {
       ...scores,
       [subcategoryKey]: newValue || 0
     };
     
+    console.log('subcateogry')
+    console.log(subcategory)
+    console.log(newScores)
+
     setScores(newScores);
     setError(null);
 
@@ -1114,36 +1120,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         })}
       </Box>
 
-      {/* Footer Section */}
-      <Divider />
-      <Box sx={{ p: 2 }}>
-        <Stack 
-          direction="row" 
-          justifyContent="space-between" 
-          alignItems="center"
-        >
-          <Typography color="text.secondary">
-            Current Score: <strong>{scores[getCurrentSubcategoryKey()] || 0}</strong> / 10
-          </Typography>
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="outlined"
-              onClick={handlePrevious}
-              disabled={!navigationState.canGoBack || isSubmitting}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleNext}
-              disabled={isSubmitting}
-              startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
-            >
-              {navigationState.isLastSection ? 'Complete' : 'Next'}
-            </Button>
-          </Stack>
-        </Stack>
-      </Box>
+      
     </Paper>
   );
 };
