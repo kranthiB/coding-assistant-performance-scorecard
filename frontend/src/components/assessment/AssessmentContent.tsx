@@ -70,7 +70,12 @@ interface ScoringGuide {
 interface CriteriaData {
   description: string;
   criteria: string[];
-  scoringGuide: ScoringGuide;
+  scoringGuide: {
+    exceptional: string[];
+    good: string[];
+    fair: string[];
+    poor: string[];
+  };
 }
 
 interface CategoryCriteria {
@@ -90,7 +95,7 @@ const categoryTabs = {
 };
 
 // Assessment criteria for each category and subcategory
-const assessmentCriteria: AssessmentCriteriaType = {
+const assessmentCriteria: Record<string, Record<string, CriteriaData>> = {
   intelligence: {
     'context-awareness': {
       description: 'Evaluate how well the system understands and utilizes context in its responses',
@@ -721,62 +726,13 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
 }) => {
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
-  const [score, setScore] = useState<number | null>(5);
+  const [scores, setScores] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const currentTabs = categoryTabs[category as keyof typeof categoryTabs] || [];
 
-  // Function to get current category scores
-  const getCurrentCategoryScores = () => {
-    const categoryData = toolDetails.assessment.categories.find(
-      cat => cat.name.toLowerCase() === category
-    );
-    if (categoryData) {
-      try {
-        return JSON.parse(categoryData.score);
-      } catch (e) {
-        console.error('Error parsing category scores:', e);
-        return { notes: '', score: {} };
-      }
-    }
-    return { notes: '', score: {} };
-  };
-
-  // Function to get the current subcategory score
-  const getCurrentSubcategoryScore = (): number => {
-    const categoryData = toolDetails.assessment.categories.find(
-      cat => cat.name.toLowerCase() === category
-    );
-    
-    if (categoryData) {
-      try {
-        const parsedScore = JSON.parse(categoryData.score);
-        // Convert subcategory from kebab-case to camelCase
-        const subcategoryKey = subcategory
-          .split('-')
-          .map((word, index) => 
-            index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
-          )
-          .join('');
-        
-        console.log('Subcategory key:', subcategoryKey);
-        console.log('Parsed scores:', parsedScore);
-        
-        return parsedScore.score[subcategoryKey] || 0;
-      } catch (e) {
-        console.error('Error parsing subcategory score:', e);
-        return 0;
-      }
-    }
-    return 0;
-  };
-
-  // Update score and notes when category or subcategory changes
+  // Initialize scores and notes from toolDetails
   useEffect(() => {
-    const currentScore = getCurrentSubcategoryScore();
-    setScore(currentScore);
-    
-    // Get notes from category data
     const categoryData = toolDetails.assessment.categories.find(
       cat => cat.name.toLowerCase() === category
     );
@@ -784,15 +740,43 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     if (categoryData) {
       try {
         const parsedData = JSON.parse(categoryData.score);
+        setScores(parsedData.score || {});
         setNotes(parsedData.notes || '');
+        
+        console.log('Initialized category data:', {
+          category,
+          scores: parsedData.score,
+          notes: parsedData.notes
+        });
       } catch (e) {
-        console.error('Error parsing category data for notes:', e);
+        console.error('Error parsing category data:', e);
+        setScores({});
         setNotes('');
       }
     } else {
+      setScores({});
       setNotes('');
     }
-  }, [category, subcategory, toolDetails]);
+  }, [category, toolDetails]);
+
+  // Update active tab when subcategory changes
+  useEffect(() => {
+    const subcategoryIndex = currentTabs.findIndex(
+      tab => tab.toLowerCase().replace(/\s+/g, '-') === subcategory
+    );
+    if (subcategoryIndex !== -1) {
+      setActiveTab(subcategoryIndex);
+    }
+  }, [subcategory, currentTabs]);
+
+  const getCurrentSubcategoryKey = () => {
+    return subcategory
+      .split('-')
+      .map((word, index) => 
+        index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+      )
+      .join('');
+  };
 
   const calculateTotalScore = (categories: CategoryScore[]): number => {
     let totalScore = 0;
@@ -815,73 +799,83 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     return validCategories > 0 ? totalScore / validCategories : 0;
   };
 
-  // Function to update category scores
-  const updateCategoryScores = (newScore: number, newNotes: string) => {
+  const getCriteriaForTab = (): CriteriaData | null => {
+    const categoryData = assessmentCriteria[category as keyof typeof assessmentCriteria];
+    if (!categoryData) {
+      console.error(`No criteria found for category: ${category}`);
+      return null;
+    }
+
+    const tabId = currentTabs[activeTab]?.toLowerCase().replace(/\s+/g, '-');
+    if (!tabId) {
+      console.error(`No tab ID generated for active tab index: ${activeTab}`);
+      return null;
+    }
+
+    const criteriaData = categoryData[tabId as keyof typeof categoryData];
+    if (!criteriaData) {
+      console.error(`No criteria found for tab: ${tabId} in category: ${category}`);
+      return null;
+    }
+
+    return criteriaData;
+  };
+
+  const handleScoreChange = (event: React.SyntheticEvent, newValue: number | null) => {
+    const subcategoryKey = getCurrentSubcategoryKey();
+    const newScores = {
+      ...scores,
+      [subcategoryKey]: newValue || 0
+    };
+    
+    setScores(newScores);
+    setError(null);
+
+    // Update the category data in toolDetails
     const categoryIndex = toolDetails.assessment.categories.findIndex(
       cat => cat.name.toLowerCase() === category
     );
-    
-    if (categoryIndex === -1) return;
 
-    const currentScores = getCurrentCategoryScores();
-    const subcategoryKey = subcategory.replace(/-./g, x => x[1].toUpperCase());
-    
-    const updatedScores = {
-      notes: newNotes,
-      score: {
-        ...currentScores.score,
-        [subcategoryKey]: newScore
+    if (categoryIndex !== -1) {
+      const updatedCategories = [...toolDetails.assessment.categories];
+      const currentCategory = updatedCategories[categoryIndex];
+      
+      try {
+        const currentData = JSON.parse(currentCategory.score);
+        const updatedScore = {
+          notes: currentData.notes,
+          score: newScores
+        };
+        
+        updatedCategories[categoryIndex] = {
+          ...currentCategory,
+          score: JSON.stringify(updatedScore)
+        };
+
+        // Calculate new category average
+        const categoryAverage = Object.values(newScores).reduce((a, b) => a + b, 0) / Object.values(newScores).length;
+
+        // Update assessment scores
+        const updatedAssessment = {
+          ...toolDetails.assessment,
+          categories: updatedCategories,
+          score: {
+            ...toolDetails.assessment.score,
+            [category]: categoryAverage,
+            total: calculateTotalScore(updatedCategories)
+          }
+        };
+
+        console.log('Updated assessment:', updatedAssessment);
+      } catch (e) {
+        console.error('Error updating category scores:', e);
       }
-    };
-
-    // Calculate average score for the category
-    const scores = Object.values(updatedScores.score) as number[];
-    const categoryAverage = scores.reduce((a, b) => a + b, 0) / scores.length;
-
-    // Update the tool's assessment data
-    const updatedCategories = [...toolDetails.assessment.categories];
-    updatedCategories[categoryIndex] = {
-      ...updatedCategories[categoryIndex],
-      score: JSON.stringify(updatedScores)
-    };
-
-    // Update overall scores
-    const updatedAssessment = {
-      ...toolDetails.assessment,
-      categories: updatedCategories,
-      score: {
-        ...toolDetails.assessment.score,
-        [category]: categoryAverage,
-        total: calculateTotalScore(updatedCategories)
-      }
-    };
-
-    // Prepare data for API update
-    const updatedToolDetails = {
-      ...toolDetails,
-      assessment: updatedAssessment,
-      score: updatedAssessment.score.total
-    };
-
-    return updatedToolDetails;
+    }
   };
 
-
-  // Update active tab when subcategory changes
-  useEffect(() => {
-    const subcategoryIndex = currentTabs.findIndex(
-      tab => tab.toLowerCase().replace(/\s+/g, '-') === subcategory
-    );
-    if (subcategoryIndex !== -1) {
-      setActiveTab(subcategoryIndex);
-    }
-  }, [subcategory, currentTabs]);
-
-  // Reset score and notes when category or subcategory changes
-  useEffect(() => {
-    setScore(5);
-    setNotes('');
-  }, [category, subcategory]);
+  const handleNotesChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNotes(event.target.value);
+  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     const newSubcategoryId = currentTabs[newValue]?.toLowerCase().replace(/\s+/g, '-');
@@ -891,24 +885,71 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
   };
 
-  const handleScoreChange = (event: React.SyntheticEvent, newValue: number | null) => {
-    setScore(newValue);
-    setError(null);
-  };
+  const handleNext = async () => {
+    const subcategoryKey = getCurrentSubcategoryKey();
+    const currentScore = scores[subcategoryKey] || 0;
 
-  const handleNotesChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNotes(event.target.value);
-  };
-
-  const handleSubmit = () => {
-    if (!score) {
+    if (currentScore === 0) {
       setError('Please provide a score before proceeding');
       return;
     }
 
-    const updatedToolDetails = updateCategoryScores(score, notes);
-    if (updatedToolDetails) {
-      onScoreSubmit(score, notes);
+    try {
+      // Find the current category data
+      const categoryIndex = toolDetails.assessment.categories.findIndex(
+        cat => cat.name.toLowerCase() === category
+      );
+
+      if (categoryIndex !== -1) {
+        const updatedCategories = [...toolDetails.assessment.categories];
+        const currentCategory = updatedCategories[categoryIndex];
+        
+        // Update the current category's score
+        const currentData = JSON.parse(currentCategory.score);
+        const updatedScore = {
+          notes,
+          score: scores
+        };
+        
+        updatedCategories[categoryIndex] = {
+          ...currentCategory,
+          score: JSON.stringify(updatedScore)
+        };
+
+        // Calculate category average
+        const categoryScores = Object.values(scores);
+        const categoryAverage = categoryScores.reduce((a, b) => a + b, 0) / categoryScores.length;
+
+        // Update the assessment with new scores
+        const updatedAssessment = {
+          ...toolDetails.assessment,
+          categories: updatedCategories,
+          score: {
+            ...toolDetails.assessment.score,
+            [category]: categoryAverage,
+            total: calculateTotalScore(updatedCategories)
+          }
+        };
+
+        // Update tool details with new assessment data
+        const updatedToolDetails = {
+          ...toolDetails,
+          assessment: updatedAssessment,
+          score: updatedAssessment.score.total,
+          lastAssessment: new Date().toISOString()
+        };
+
+        // Submit the current score and notes
+        await onScoreSubmit(currentScore, notes);
+
+        // Navigate to the next section
+        if (!navigationState.isLastSection) {
+          onNavigate('next');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling next navigation:', error);
+      setError('An error occurred while saving your assessment. Please try again.');
     }
   };
 
@@ -918,31 +959,26 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
   };
 
-  const handleNext = () => {
-    if (!score) {
+  const handleSubmit = () => {
+    const subcategoryKey = getCurrentSubcategoryKey();
+    const currentScore = scores[subcategoryKey] || 0;
+    
+    if (currentScore === 0) {
       setError('Please provide a score before proceeding');
       return;
     }
-    handleSubmit();
+
+    onScoreSubmit(currentScore, notes);
   };
 
-  const getCriteriaForTab = (): CriteriaData | null => {
-    const categoryData = assessmentCriteria[category as keyof typeof assessmentCriteria];
-    if (!categoryData) return null;
-    const tabId = currentTabs[activeTab]?.toLowerCase().replace(/\s+/g, '-');
-    return categoryData[tabId as keyof typeof categoryData] || null;
-  };
-  
   return (
     <Paper elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header Section */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', p: 2 }}>
-        {/* Category Title */}
         <Typography variant="h6" gutterBottom>
           {category.charAt(0).toUpperCase() + category.slice(1)} / {toolDetails.name}
         </Typography>
         
-        {/* Score Range Indicators */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           {[
             { range: '0-4', status: 'Poor' },
@@ -958,8 +994,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
             />
           ))}
         </Stack>
-  
-        {/* Category Tabs */}
+
         <Tabs 
           value={activeTab} 
           onChange={handleTabChange}
@@ -972,11 +1007,14 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
           ))}
         </Tabs>
       </Box>
-  
+
       {/* Main Content Area */}
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         {currentTabs.map((tab, index) => {
           const criteriaData = getCriteriaForTab();
+          const subcategoryKey = getCurrentSubcategoryKey();
+          const currentScore = scores[subcategoryKey] || 0;
+
           return (
             <TabPanel key={index} value={activeTab} index={index}>
               <Stack spacing={4}>
@@ -989,7 +1027,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                     {criteriaData?.description || `Evaluate the tool's ${tab.toLowerCase()} capabilities`}
                   </Typography>
                 </Box>
-  
+
                 {/* Scoring Section */}
                 <Box>
                   <Typography variant="subtitle1" gutterBottom>
@@ -998,18 +1036,21 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                   <StyledRating
                     name="score-rating"
                     max={10}
-                    value={getCurrentSubcategoryScore()}
+                    value={currentScore}
                     onChange={handleScoreChange}
                     size="large"
                     precision={1}
                   />
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    Current Score: {currentScore} / 10
+                  </Typography>
                   {error && (
                     <Alert severity="error" sx={{ mt: 1 }}>
                       {error}
                     </Alert>
                   )}
                 </Box>
-  
+
                 {/* Navigation Controls */}
                 <Box sx={{ p: 2 }}>
                   <Stack 
@@ -1018,7 +1059,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                     alignItems="center"
                   >
                     <Typography color="text.secondary">
-                      Current Score: <strong>{score}</strong> / 10
+                      Current Score: <strong>{currentScore}</strong> / 10
                     </Typography>
                     <Stack direction="row" spacing={2}>
                       {navigationState.canGoBack && (
@@ -1041,7 +1082,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                     </Stack>
                   </Stack>
                 </Box>
-  
+
                 {/* Scoring Guidelines */}
                 {criteriaData?.scoringGuide && (
                   <Box>
@@ -1051,7 +1092,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                     <ScoringGuidelines criteriaData={criteriaData} />
                   </Box>
                 )}
-  
+
                 {/* Assessment Notes */}
                 <Box>
                   <Typography variant="subtitle1" gutterBottom>
@@ -1072,7 +1113,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
           );
         })}
       </Box>
-  
+
       {/* Footer Section */}
       <Divider />
       <Box sx={{ p: 2 }}>
@@ -1082,19 +1123,19 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
           alignItems="center"
         >
           <Typography color="text.secondary">
-            Current Score: <strong>{score}</strong> / 10
+            Current Score: <strong>{scores[getCurrentSubcategoryKey()] || 0}</strong> / 10
           </Typography>
           <Stack direction="row" spacing={2}>
             <Button
               variant="outlined"
-              onClick={() => onNavigate('previous')}
+              onClick={handlePrevious}
               disabled={!navigationState.canGoBack || isSubmitting}
             >
               Previous
             </Button>
             <Button
               variant="contained"
-              onClick={handleSubmit}
+              onClick={handleNext}
               disabled={isSubmitting}
               startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
             >
@@ -1106,5 +1147,6 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     </Paper>
   );
 };
+
 
 export default AssessmentContent;
