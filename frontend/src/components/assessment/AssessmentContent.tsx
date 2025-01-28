@@ -24,7 +24,9 @@ import {
   Remove as MinusIcon,
   Cancel as XIcon
 } from '@mui/icons-material';
-import type { Tool } from '../../api/types';
+import type { Tool, ToolScore, CategoryScore, ToolAssessment } from '../../api/types';
+
+
 
 // Update the navigation direction type
 type NavigationDirection = 'next' | 'previous' | 'tab-change';
@@ -724,6 +726,147 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   const [error, setError] = useState<string | null>(null);
   const currentTabs = categoryTabs[category as keyof typeof categoryTabs] || [];
 
+  // Function to get current category scores
+  const getCurrentCategoryScores = () => {
+    const categoryData = toolDetails.assessment.categories.find(
+      cat => cat.name.toLowerCase() === category
+    );
+    if (categoryData) {
+      try {
+        return JSON.parse(categoryData.score);
+      } catch (e) {
+        console.error('Error parsing category scores:', e);
+        return { notes: '', score: {} };
+      }
+    }
+    return { notes: '', score: {} };
+  };
+
+  // Function to get the current subcategory score
+  const getCurrentSubcategoryScore = (): number => {
+    const categoryData = toolDetails.assessment.categories.find(
+      cat => cat.name.toLowerCase() === category
+    );
+    
+    if (categoryData) {
+      try {
+        const parsedScore = JSON.parse(categoryData.score);
+        // Convert subcategory from kebab-case to camelCase
+        const subcategoryKey = subcategory
+          .split('-')
+          .map((word, index) => 
+            index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+          )
+          .join('');
+        
+        console.log('Subcategory key:', subcategoryKey);
+        console.log('Parsed scores:', parsedScore);
+        
+        return parsedScore.score[subcategoryKey] || 0;
+      } catch (e) {
+        console.error('Error parsing subcategory score:', e);
+        return 0;
+      }
+    }
+    return 0;
+  };
+
+  // Update score and notes when category or subcategory changes
+  useEffect(() => {
+    const currentScore = getCurrentSubcategoryScore();
+    setScore(currentScore);
+    
+    // Get notes from category data
+    const categoryData = toolDetails.assessment.categories.find(
+      cat => cat.name.toLowerCase() === category
+    );
+    
+    if (categoryData) {
+      try {
+        const parsedData = JSON.parse(categoryData.score);
+        setNotes(parsedData.notes || '');
+      } catch (e) {
+        console.error('Error parsing category data for notes:', e);
+        setNotes('');
+      }
+    } else {
+      setNotes('');
+    }
+  }, [category, subcategory, toolDetails]);
+
+  const calculateTotalScore = (categories: CategoryScore[]): number => {
+    let totalScore = 0;
+    let validCategories = 0;
+
+    categories.forEach(category => {
+      try {
+        const categoryData = JSON.parse(category.score);
+        const scores = Object.values(categoryData.score) as number[];
+        if (scores.length > 0) {
+          const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+          totalScore += average;
+          validCategories++;
+        }
+      } catch (e) {
+        console.error('Error calculating score for category:', category.name);
+      }
+    });
+
+    return validCategories > 0 ? totalScore / validCategories : 0;
+  };
+
+  // Function to update category scores
+  const updateCategoryScores = (newScore: number, newNotes: string) => {
+    const categoryIndex = toolDetails.assessment.categories.findIndex(
+      cat => cat.name.toLowerCase() === category
+    );
+    
+    if (categoryIndex === -1) return;
+
+    const currentScores = getCurrentCategoryScores();
+    const subcategoryKey = subcategory.replace(/-./g, x => x[1].toUpperCase());
+    
+    const updatedScores = {
+      notes: newNotes,
+      score: {
+        ...currentScores.score,
+        [subcategoryKey]: newScore
+      }
+    };
+
+    // Calculate average score for the category
+    const scores = Object.values(updatedScores.score) as number[];
+    const categoryAverage = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+    // Update the tool's assessment data
+    const updatedCategories = [...toolDetails.assessment.categories];
+    updatedCategories[categoryIndex] = {
+      ...updatedCategories[categoryIndex],
+      score: JSON.stringify(updatedScores)
+    };
+
+    // Update overall scores
+    const updatedAssessment = {
+      ...toolDetails.assessment,
+      categories: updatedCategories,
+      score: {
+        ...toolDetails.assessment.score,
+        [category]: categoryAverage,
+        total: calculateTotalScore(updatedCategories)
+      }
+    };
+
+    // Prepare data for API update
+    const updatedToolDetails = {
+      ...toolDetails,
+      assessment: updatedAssessment,
+      score: updatedAssessment.score.total
+    };
+
+    return updatedToolDetails;
+  };
+
+
   // Update active tab when subcategory changes
   useEffect(() => {
     const subcategoryIndex = currentTabs.findIndex(
@@ -762,7 +905,11 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
       setError('Please provide a score before proceeding');
       return;
     }
-    onScoreSubmit(score, notes);
+
+    const updatedToolDetails = updateCategoryScores(score, notes);
+    if (updatedToolDetails) {
+      onScoreSubmit(score, notes);
+    }
   };
 
   const handlePrevious = () => {
@@ -788,11 +935,14 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   
   return (
     <Paper elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header Section */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', p: 2 }}>
+        {/* Category Title */}
         <Typography variant="h6" gutterBottom>
           {category.charAt(0).toUpperCase() + category.slice(1)} / {toolDetails.name}
         </Typography>
         
+        {/* Score Range Indicators */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           {[
             { range: '0-4', status: 'Poor' },
@@ -809,10 +959,13 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
           ))}
         </Stack>
   
+        {/* Category Tabs */}
         <Tabs 
           value={activeTab} 
           onChange={handleTabChange}
           aria-label="assessment tabs"
+          variant="scrollable"
+          scrollButtons="auto"
         >
           {currentTabs.map((tab, index) => (
             <Tab key={index} label={tab} />
@@ -820,12 +973,14 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         </Tabs>
       </Box>
   
+      {/* Main Content Area */}
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         {currentTabs.map((tab, index) => {
           const criteriaData = getCriteriaForTab();
           return (
             <TabPanel key={index} value={activeTab} index={index}>
               <Stack spacing={4}>
+                {/* Evaluation Section */}
                 <Box>
                   <Typography variant="h6" gutterBottom>
                     {tab} Evaluation
@@ -835,15 +990,18 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                   </Typography>
                 </Box>
   
+                {/* Scoring Section */}
                 <Box>
                   <Typography variant="subtitle1" gutterBottom>
                     Score
                   </Typography>
                   <StyledRating
+                    name="score-rating"
                     max={10}
-                    value={score}
+                    value={getCurrentSubcategoryScore()}
                     onChange={handleScoreChange}
                     size="large"
+                    precision={1}
                   />
                   {error && (
                     <Alert severity="error" sx={{ mt: 1 }}>
@@ -851,7 +1009,8 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                     </Alert>
                   )}
                 </Box>
-
+  
+                {/* Navigation Controls */}
                 <Box sx={{ p: 2 }}>
                   <Stack 
                     direction="row" 
@@ -883,6 +1042,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                   </Stack>
                 </Box>
   
+                {/* Scoring Guidelines */}
                 {criteriaData?.scoringGuide && (
                   <Box>
                     <Typography variant="subtitle1" gutterBottom>
@@ -891,7 +1051,8 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                     <ScoringGuidelines criteriaData={criteriaData} />
                   </Box>
                 )}
-
+  
+                {/* Assessment Notes */}
                 <Box>
                   <Typography variant="subtitle1" gutterBottom>
                     Assessment Notes
@@ -912,8 +1073,8 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
         })}
       </Box>
   
+      {/* Footer Section */}
       <Divider />
-  
       <Box sx={{ p: 2 }}>
         <Stack 
           direction="row" 
