@@ -1,4 +1,5 @@
 package com.codingassistant.model;
+
 import jakarta.persistence.*;
 import java.time.LocalDate;
 
@@ -7,20 +8,24 @@ import java.time.LocalDate;
 public class Tool {
 
     @Id
-    @SequenceGenerator(name = "tools_id_seq_generator", sequenceName = "tools_id_seq", allocationSize = 1)
+    @SequenceGenerator(
+            name = "tools_id_seq_generator",
+            sequenceName = "tools_id_seq",
+            allocationSize = 1
+    )
     @GeneratedValue(
             strategy = GenerationType.SEQUENCE,
             generator = "tools_id_seq_generator"
     )
     private Long id;
 
-    @Column(name = "name")
+    @Column(name = "name", length = 100, nullable = false)
     private String name;
 
     @Column(name = "score")
-    private Double score;
+    private Integer score;
 
-    @Column(name = "status")
+    @Column(name = "status", length = 20, nullable = false)
     private String status;
 
     @Column(name = "description")
@@ -29,41 +34,24 @@ public class Tool {
     @Column(name = "last_assessment")
     private LocalDate lastAssessment;
 
-    @Column(name = "category")
+    @Column(name = "category", length = 50)
     private String category;
 
-    @PrePersist
-    @PreUpdate
-    protected void validateData() {
-        if (score != null) {
-            score = Math.round(score * 100.0) / 100.0; // Ensure 2 decimal places
-        }
-        if (name != null) {
-            name = name.trim();
-        }
-        if (status != null) {
-            status = status.trim().toLowerCase();
-        }
-        if (category != null) {
-            category = category.trim();
-        }
-    }
+    @OneToOne(
+            mappedBy = "tool",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY,
+            optional = true
+    )
+    private Assessment assessment;
 
-    /**
-     * Creates a summary string of the tool's key information.
-     * @return A string containing the tool's ID, name, and status
-     */
+
     @Override
     public String toString() {
         return String.format("Tool[id=%d, name='%s', status='%s']",
                 id, name, status);
     }
 
-    /**
-     * Custom equals method to compare tools based on their ID.
-     * @param o The object to compare with
-     * @return true if the tools have the same ID, false otherwise
-     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -72,15 +60,12 @@ public class Tool {
         return id != null && id.equals(tool.id);
     }
 
-    /**
-     * Custom hashCode method based on the tool's ID.
-     * @return The hash code value for this tool
-     */
     @Override
     public int hashCode() {
         return getClass().hashCode();
     }
 
+    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -97,11 +82,11 @@ public class Tool {
         this.name = name;
     }
 
-    public Double getScore() {
+    public Integer getScore() {
         return score;
     }
 
-    public void setScore(Double score) {
+    public void setScore(Integer score) {
         this.score = score;
     }
 
@@ -135,5 +120,16 @@ public class Tool {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public Assessment getAssessment() {
+        return assessment;
+    }
+
+    public void setAssessment(Assessment assessment) {
+        this.assessment = assessment;
+        if (assessment != null && assessment.getTool() != this) {
+            assessment.setTool(this);
+        }
     }
 }
