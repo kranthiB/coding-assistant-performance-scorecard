@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: coding-assistant-api
+
+  # Development Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/coding_assistant
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 20000
+      auto-commit: false
+
+  # Common Database Configuration
+  jpa:
+    properties:
+      hibernate:
+        connection:
+          provider_disables_autocommit: true
+      jakarta:
+        persistence:
+          sharedCache:
+            mode: ENABLE_SELECTIVE
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  # Jackson Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    date-format: "yyyy-MM-dd HH:mm:ss"
+
+  # Actuator Configuration
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus
+    endpoint:
+      health:
+        show-details: when_authorized
+      metrics:
+        enabled: true
+      prometheus:
+        enabled: true
+
+# Server Configuration
+server:
+  port: 7070
+  servlet:
+    context-path: /api/v1
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.codingassistant: INFO
+    org.springframework: INFO
+    org.hibernate: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/application.log
+    max-size: 10MB
+    max-history: 30
+
+# CORS Configuration
+cors:
+  allowed-origins: "*"
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  max-age: 3600
