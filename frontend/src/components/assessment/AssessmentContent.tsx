@@ -1057,6 +1057,22 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                   )}
                 </Box>
 
+                {/* Assessment Notes */}
+                <Box>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Assessment Notes
+                  </Typography>
+                  <TextField
+                    multiline
+                    rows={2}
+                    fullWidth
+                    value={notes}
+                    onChange={handleNotesChange}
+                    placeholder="Add your assessment notes here..."
+                    variant="outlined"
+                  />
+                </Box>
+
                 {/* Navigation Controls */}
                 <Box sx={{ p: 2 }}>
                   <Stack 
@@ -1099,21 +1115,6 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                   </Box>
                 )}
 
-                {/* Assessment Notes */}
-                <Box>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Assessment Notes
-                  </Typography>
-                  <TextField
-                    multiline
-                    rows={4}
-                    fullWidth
-                    value={notes}
-                    onChange={handleNotesChange}
-                    placeholder="Add your assessment notes here..."
-                    variant="outlined"
-                  />
-                </Box>
               </Stack>
             </TabPanel>
           );
