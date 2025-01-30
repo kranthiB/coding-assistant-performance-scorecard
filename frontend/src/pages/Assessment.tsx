@@ -101,27 +101,6 @@ const Assessment: React.FC = () => {
     return Number((sum / assessments.length).toFixed(2));
   };
 
-  const handleSubmitAssessment = async () => {
-    try {
-      setIsSubmitting(true);
-      await handleAssessmentComplete();
-      // Update tool score after assessment completion
-      if (toolDetails) {
-        const updatedScore = calculateFinalScore(state.assessments);
-        await toolsApi.updateTool(toolId, {
-          ...toolDetails,
-          score: updatedScore,
-          lastAssessment: new Date().toISOString()
-        });
-      }
-      navigate('/', { state: { assessmentCompleted: true } });
-    } catch (err) {
-      setError('Failed to submit assessment. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleCloseError = () => setError(null);
 
   if (isLoading) {

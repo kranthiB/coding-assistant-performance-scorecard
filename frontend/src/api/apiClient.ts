@@ -24,8 +24,12 @@ export const toolsApi = {
         return response.data;
     },
 
-    updateTool: async (id: string, tool: Partial<Tool>): Promise<Tool> => {
-        const response = await axios.put(`${API_BASE_URL}/tools/${id}`, tool);
+    updateTool: async (id: string, scores: Partial<Record<string, Record<string, number>>>, notes: Record<string, Record<string, string>>): Promise<Tool> => {
+        const scoresAndNotes = {
+            "scores": scores,
+            "notes": notes
+          }
+        const response = await axios.put(`${API_BASE_URL}/tools/${id}`, scoresAndNotes);
         return response.data;
     },
 

@@ -23,6 +23,7 @@ public class ToolController {
 
     private static final Logger logger = LoggerFactory.getLogger(ToolController.class);
     private static final String CATEGORY_SCORE_FORMAT = "{\"score\": %s }";
+    private static final String CATEGORY_NOTE_FORMAT = "{\"note\": \"%s\" }";
     private final ToolService toolService;
     private final ObjectMapper objectMapper;
 
@@ -47,9 +48,12 @@ public class ToolController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<String> updateTool(@PathVariable Long id, @RequestBody AssessmentScoreDTO assessmentScoreDTO) throws JsonProcessingException {
+    public ResponseEntity<String> updateTool(@PathVariable Long id, @RequestBody AssessmentScoresAndNotesDTO assessmentScoresAndNotesDTO) throws JsonProcessingException {
+        AssessmentScoreDTO assessmentScoreDTO = assessmentScoresAndNotesDTO.getScores();
+        AssessmentNoteDTO assessmentNoteDTO = assessmentScoresAndNotesDTO.getNotes();
         Tool tool = toolService.getToolById(id);
         updateScores(assessmentScoreDTO, tool.getAssessment());
+        updateNotes(assessmentNoteDTO, tool.getAssessment());
         toolService.saveTool(tool);
         return ResponseEntity.ok("SUCCESSFULLY UPDATED");
     }
@@ -62,16 +66,28 @@ public class ToolController {
         assessment.getAssessmentScore().setTotal(totalScore);
     }
 
+    private void updateNotes(AssessmentNoteDTO assessmentNoteDTO, Assessment assessment) throws JsonProcessingException {
+        getCategoryByName("Acceleration", assessment.getCategories())
+                .setNote(String.format(CATEGORY_NOTE_FORMAT,
+                        objectMapper.writeValueAsString(assessmentNoteDTO.getAcceleration())));
+        getCategoryByName("Intelligence", assessment.getCategories())
+                .setNote(String.format(CATEGORY_NOTE_FORMAT,
+                        objectMapper.writeValueAsString(assessmentNoteDTO.getIntelligence())));
+        getCategoryByName("Experience", assessment.getCategories())
+                .setNote(String.format(CATEGORY_NOTE_FORMAT,
+                        objectMapper.writeValueAsString(assessmentNoteDTO.getExperience())));
+        getCategoryByName("Value", assessment.getCategories())
+                .setNote(String.format(CATEGORY_NOTE_FORMAT,
+                        objectMapper.writeValueAsString(assessmentNoteDTO.getValue())));
+    }
+
     private int updateAccelerationScore(AccelerationScoreDTO accelerationScoreDTO, Assessment assessment) throws JsonProcessingException {
         int iterationSize = accelerationScoreDTO.getIterationSize();
         int iterationSpeed = accelerationScoreDTO.getIterationSpeed();
         int capabilities = accelerationScoreDTO.getCapabilities();
         int accelerationScore = iterationSize + iterationSpeed + capabilities;
         assessment.getAssessmentScore().setAcceleration(accelerationScore);
-        AssessmentCategory category = assessment.getCategories().stream()
-                .filter(c -> c.getName().equals("Acceleration"))
-                .findFirst()
-                .orElse(new AssessmentCategory());
+        AssessmentCategory category = getCategoryByName("Acceleration", assessment.getCategories());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(accelerationScoreDTO)));
         return accelerationScore;
     }
@@ -82,10 +98,7 @@ public class ToolController {
         int autonomy = intelligenceScoreDTO.getAutonomy();
         int intelligenceScore = contextAwareness + outputQuality + autonomy;
         assessment.getAssessmentScore().setIntelligence(intelligenceScore);
-        AssessmentCategory category = assessment.getCategories().stream()
-               .filter(c -> c.getName().equals("Intelligence"))
-               .findFirst()
-               .orElse(new AssessmentCategory());
+        AssessmentCategory category = getCategoryByName("Intelligence", assessment.getCategories());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(intelligenceScoreDTO)));
         return intelligenceScore;
     }
@@ -96,9 +109,7 @@ public class ToolController {
         int reliability = experienceScoreDTO.getReliability();
         int experienceScore = easeOfUse + flexibility + reliability;
         assessment.getAssessmentScore().setExperience(experienceScore);
-        AssessmentCategory category = assessment.getCategories().stream()
-                .filter(c -> c.getName().equals("Experience"))
-               .findFirst().orElse(new AssessmentCategory());
+        AssessmentCategory category = getCategoryByName("Experience", assessment.getCategories());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(experienceScoreDTO)));
         return experienceScore;
     }
@@ -106,10 +117,15 @@ public class ToolController {
     private int updateValueScore(ValueScoreDTO valueScoreDTO, Assessment assessment) throws JsonProcessingException {
         int valueScore = valueScoreDTO.getValue();
         assessment.getAssessmentScore().setValue(valueScore);
-        AssessmentCategory category = assessment.getCategories().stream()
-                .filter(c -> c.getName().equals("Value"))
-                .findFirst().orElse(new AssessmentCategory());
+        AssessmentCategory category = getCategoryByName("Value", assessment.getCategories());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(valueScoreDTO)));
         return valueScore;
+    }
+
+    private AssessmentCategory getCategoryByName(String categoryName, List<AssessmentCategory> assessmentCategories) {
+        return assessmentCategories.stream()
+                .filter(c -> c.getName().equals(categoryName))
+                .findFirst()
+                .orElse(new AssessmentCategory());
     }
 }

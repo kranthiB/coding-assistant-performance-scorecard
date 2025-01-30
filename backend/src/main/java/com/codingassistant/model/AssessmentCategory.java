@@ -30,6 +30,9 @@ public class AssessmentCategory {
     @Column(name = "score")
     private String score;
 
+    @Column(name = "note")
+    private String note;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -95,5 +98,13 @@ public class AssessmentCategory {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
     }
 }

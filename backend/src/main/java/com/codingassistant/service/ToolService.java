@@ -75,7 +75,6 @@ public class ToolService {
         toolDto.setId(tool.getId());
         toolDto.setName(tool.getName());
         toolDto.setDescription(tool.getDescription());
-        toolDto.setScore(tool.getScore());
         toolDto.setStatus(tool.getStatus());
         toolDto.setLastAssessment(tool.getLastAssessment());
         toolDto.setCategory(tool.getCategory());

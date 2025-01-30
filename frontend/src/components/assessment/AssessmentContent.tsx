@@ -86,6 +86,29 @@ interface AssessmentCriteriaType {
   [key: string]: CategoryCriteria;
 }
 
+// Add after the existing interfaces
+interface CategoryNotes {
+  [key: string]: { [key: string]: string };
+  intelligence: {
+    autonomy: string;
+    outputQuality: string;
+    contextAwareness: string;
+  };
+  acceleration: {
+    capabilities: string;
+    iterationSize: string;
+    iterationSpeed: string;
+  };
+  experience: {
+    flexibility: string;
+    reliability: string;
+    easeOfUse: string;
+  };
+  value: {
+    value: string;
+  };
+}
+
 // Tab configurations for different categories
 const categoryTabs = {
   intelligence: ['Context Awareness', 'Output Quality', 'Autonomy'],
@@ -728,41 +751,71 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
-  const [notes, setNotes] = useState('');
+  const [allNotes, setAllNotes] = useState<CategoryNotes>({
+    intelligence: {
+      autonomy: '',
+      outputQuality: '',
+      contextAwareness: ''
+    },
+    acceleration: {
+      capabilities: '',
+      iterationSize: '',
+      iterationSpeed: ''
+    },
+    experience: {
+      flexibility: '',
+      reliability: '',
+      easeOfUse: ''
+    },
+    value: {
+      value: ''
+    }
+  });
+  const [currentNote, setCurrentNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const currentTabs = categoryTabs[category as keyof typeof categoryTabs] || [];
 
+  const getSubcategoryKey = (subcategory: string): string => {
+    if (category === 'value') {
+      return 'value';
+    }
+    return subcategory
+      .split('-')
+      .map((word, index) => 
+        index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+      )
+      .join('');
+  };
   // Initialize scores and notes from toolDetails for all categories
   useEffect(() => {
     const initialScores: Record<string, Record<string, number>> = {};
+    const initialNotes = { ...allNotes };
     
     toolDetails.assessment.categories.forEach(categoryData => {
       try {
         const parsedData = JSON.parse(categoryData.score);
-        initialScores[categoryData.name.toLowerCase()] = parsedData.score || {};
+        const categoryName = categoryData.name.toLowerCase() as keyof CategoryNotes;
+        initialScores[categoryName] = parsedData.score || {};
+        
+        if (parsedData.notes && typeof parsedData.notes === 'object') {
+          initialNotes[categoryName] = {
+            ...initialNotes[categoryName],
+            ...parsedData.notes
+          };
+        }
       } catch (e) {
         console.error(`Error parsing category data for ${categoryData.name}:`, e);
-        initialScores[categoryData.name.toLowerCase()] = {};
       }
     });
     
     setAllScores(initialScores);
-
-    // Set initial notes for current category
-    const currentCategoryData = toolDetails.assessment.categories.find(
-      cat => cat.name.toLowerCase() === category
-    );
-    
-    if (currentCategoryData) {
-      try {
-        const parsedData = JSON.parse(currentCategoryData.score);
-        setNotes(parsedData.notes || '');
-      } catch (e) {
-        console.error('Error parsing notes:', e);
-        setNotes('');
-      }
-    }
-  }, [toolDetails.assessment.categories]);
+    setAllNotes(initialNotes);
+  
+    // Set initial note for current subcategory
+    const subcategoryKey = getSubcategoryKey(subcategory);
+    const categoryKey = category as keyof CategoryNotes;
+    setCurrentNote(initialNotes[categoryKey]?.[subcategoryKey] || '');
+  }, [toolDetails.assessment.categories, category, subcategory]);
 
   // Update active tab when subcategory changes
   useEffect(() => {
@@ -891,19 +944,34 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   };
 
   const handleNotesChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNotes(event.target.value);
+    const newNote = event.target.value;
+    const subcategoryKey = getSubcategoryKey(subcategory);
+    const categoryKey = category as keyof CategoryNotes;
+    
+    setCurrentNote(newNote);
+    setAllNotes(prev => ({
+      ...prev,
+      [categoryKey]: {
+        ...prev[categoryKey],
+        [subcategoryKey]: newNote
+      }
+    }));
   };
 
+  // Replace the existing handleTabChange
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     const newSubcategoryId = currentTabs[newValue]?.toLowerCase().replace(/\s+/g, '-');
     if (newSubcategoryId) {
+      const subcategoryKey = getSubcategoryKey(newSubcategoryId);
+      const categoryKey = category as keyof CategoryNotes;
       setActiveTab(newValue);
+      setCurrentNote(allNotes[categoryKey]?.[subcategoryKey] || '');
       onNavigate('tab-change');
     }
   };
 
   const handleNext = async () => {
-    const subcategoryKey = getCurrentSubcategoryKey();
+    const subcategoryKey = getSubcategoryKey(subcategory);
     const currentScore = allScores[category]?.[subcategoryKey] || 0;
 
     if (currentScore === 0) {
@@ -912,56 +980,10 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
 
     try {
-      // Find the current category data
-      const categoryIndex = toolDetails.assessment.categories.findIndex(
-        cat => cat.name.toLowerCase() === category
-      );
-
-      if (categoryIndex !== -1) {
-        const updatedCategories = [...toolDetails.assessment.categories];
-        const currentCategory = updatedCategories[categoryIndex];
-        
-        // Update the current category's score
-        const updatedScore = {
-          notes,
-          score: allScores[category] || {}
-        };
-        
-        updatedCategories[categoryIndex] = {
-          ...currentCategory,
-          score: JSON.stringify(updatedScore)
-        };
-
-        // Calculate category average
-        const categoryScores = Object.values(updatedScore.score);
-        const categoryAverage = categoryScores.reduce((a, b) => a + b, 0) / categoryScores.length;
-
-        // Update the assessment with new scores
-        const updatedAssessment = {
-          ...toolDetails.assessment,
-          categories: updatedCategories,
-          score: {
-            ...toolDetails.assessment.score,
-            [category]: categoryAverage,
-            total: calculateTotalScore(updatedCategories)
-          }
-        };
-
-        // Update tool details with new assessment data
-        const updatedToolDetails = {
-          ...toolDetails,
-          assessment: updatedAssessment,
-          score: updatedAssessment.score.total,
-          lastAssessment: new Date().toISOString()
-        };
-
-        // Submit the current score and notes
-        await onScoreSubmit(currentScore, notes);
-
-        // Navigate to the next section
-        if (!navigationState.isLastSection) {
-          onNavigate('next');
-        }
+      await onScoreSubmit(currentScore, currentNote);
+      
+      if (!navigationState.isLastSection) {
+        onNavigate('next');
       }
     } catch (error) {
       console.error('Error handling next navigation:', error);
@@ -985,8 +1007,13 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
 
     try {
+      console.log("all scores");
+      console.log(allScores);
+      console.log("all notes");
+      console.log(allNotes);
+
       // Make API call to update tool details
-      await toolsApi.updateTool(toolDetails.id, allScores);
+      await toolsApi.updateTool(toolDetails.id, allScores, allNotes);
       
       // Submit final assessment data
       //await onScoreSubmit(currentScore, notes);
@@ -1092,9 +1119,9 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                   </Typography>
                   <TextField
                     multiline
-                    rows={2}
+                    rows={5}
                     fullWidth
-                    value={notes}
+                    value={currentNote}
                     onChange={handleNotesChange}
                     placeholder="Add your assessment notes here..."
                     variant="outlined"
