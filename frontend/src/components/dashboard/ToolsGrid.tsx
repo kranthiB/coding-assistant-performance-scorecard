@@ -147,9 +147,9 @@ const ToolsGrid = () => {
                 >
                   <Typography 
                     variant={isMobile ? "h5" : "h4"}
-                    color={tool.status === 'active' ? getScoreColor(tool.score) : 'text.disabled'}
+                    color={tool.status === 'active' ? getScoreColor(tool.assessment.score.total) : 'text.disabled'}
                   >
-                    {tool.score > 0 ? tool.score.toFixed(1) : '-'}
+                    {tool.assessment.score.total > 0 ? tool.assessment.score.total.toFixed(1) : '-'}
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip
