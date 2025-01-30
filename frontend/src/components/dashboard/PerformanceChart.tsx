@@ -80,12 +80,12 @@ const renderCustomBarLabel = (props: any) => {
   );
 };
 
-type ViewMode = 'total' | 'detailed';
+type ViewMode = 'detailed';
 
 const PerformanceChart: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [viewMode, setViewMode] = useState<ViewMode>('total');
+  const [viewMode] = useState<ViewMode>('detailed');
   const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,20 +108,11 @@ const PerformanceChart: React.FC = () => {
     fetchPerformanceData();
   }, []);
 
-  const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
-    }
-  };
-
   const handleRefresh = () => {
     fetchPerformanceData();
   };
 
   const getBarData = (): BarConfig[] => {
-    if (viewMode === 'total') {
-      return [{ dataKey: 'total', name: 'Total', fill: theme.palette.primary.main }];
-    }
     return [
       { 
         dataKey: 'intelligence', 
@@ -208,12 +199,8 @@ const PerformanceChart: React.FC = () => {
             <ToggleButtonGroup
               value={viewMode}
               exclusive
-              onChange={handleViewModeChange}
               size="small"
             >
-              <ToggleButton value="total">
-                Total Score
-              </ToggleButton>
               <ToggleButton value="detailed">
                 Component Scores
               </ToggleButton>
@@ -234,7 +221,7 @@ const PerformanceChart: React.FC = () => {
               layout="vertical"
               margin={{ 
                 top: 20, 
-                right: viewMode === 'total' ? 120 : 150, 
+                right: 150, 
                 left: 120, 
                 bottom: 5 
               }}
@@ -256,31 +243,22 @@ const PerformanceChart: React.FC = () => {
                 tick={{ fontSize: 12 }}
               />
               <Tooltip content={renderCustomTooltip} />
-              {viewMode === 'detailed' && (
-                <Legend 
-                  verticalAlign="middle"
-                  align="right"
-                  layout="vertical"
-                  wrapperStyle={{ paddingLeft: '10px' }}
-                />
-              )}
+              <Legend 
+                verticalAlign="middle"
+                align="right"
+                layout="vertical"
+                wrapperStyle={{ paddingLeft: '10px' }}
+              />
               {getBarData().map((bar) => (
                 <Bar
                   key={bar.dataKey}
                   dataKey={bar.dataKey}
                   name={bar.name}
                   fill={bar.fill}
-                  radius={viewMode === 'total' ? [0, 4, 4, 0] : 0}
+                  radius={0}
                   barSize={20}
                   stackId={bar.stackId}
-                >
-                  {viewMode === 'total' && (
-                    <LabelList 
-                      content={renderCustomBarLabel}
-                      fill={theme.palette.text.secondary}
-                    />
-                  )}
-                </Bar>
+                />
               ))}
             </BarChart>
           </ResponsiveContainer>
@@ -288,7 +266,7 @@ const PerformanceChart: React.FC = () => {
 
         <Typography variant="body2" color="text.secondary">
           Performance scores are calculated based on Intelligence (30 points), Acceleration (30 points), Experience (30 points), and Value (10 points) metrics, totaling a maximum of 100 points. 
-          Toggle between total and component views to see the detailed breakdown of scores across different assessment criteria.
+          The chart shows the detailed breakdown of scores across different assessment criteria.
         </Typography>
       </Stack>
     </Paper>
