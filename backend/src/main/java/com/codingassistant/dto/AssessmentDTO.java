@@ -4,7 +4,7 @@ import com.codingassistant.model.AssessmentScore;
 
 import java.util.List;
 
-public class AssessmentDto {
+public class AssessmentDTO {
 
     private long id;
     private AssessmentScore score;

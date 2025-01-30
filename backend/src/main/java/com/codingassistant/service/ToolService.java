@@ -1,7 +1,8 @@
 package com.codingassistant.service;
 
 import com.codingassistant.dto.AssessmentCategoryDto;
-import com.codingassistant.dto.AssessmentDto;
+import com.codingassistant.dto.AssessmentDTO;
+import com.codingassistant.dto.PerformanceDTO;
 import com.codingassistant.dto.ToolDto;
 import com.codingassistant.model.Assessment;
 import com.codingassistant.model.AssessmentCategory;
@@ -35,12 +36,12 @@ public class ToolService {
         return toolDtos;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ToolDto getToolDtoById(Long id) {
         return toolDto(toolRepository.findById(id).orElseThrow(() -> new RuntimeException("Tool not found")));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Tool getToolById(Long id) {
         return toolRepository.findById(id).orElseThrow(() -> new RuntimeException("Tool not found"));
     }
@@ -49,6 +50,25 @@ public class ToolService {
     public Tool saveTool(Tool tool) {
         return toolRepository.save(tool);
     }
+
+    public List<PerformanceDTO> getPerformances() {
+        List<Tool> tools = toolRepository.findAll();
+        List<PerformanceDTO> performanceDtos = new ArrayList<>();
+        for (Tool tool : tools) {
+            PerformanceDTO performanceDto = new PerformanceDTO();
+            performanceDto.setId(tool.getId());
+            performanceDto.setName(tool.getName());
+            performanceDto.setTotal(tool.getAssessment().getAssessmentScore().getTotal());
+            performanceDto.setAcceleration(tool.getAssessment().getAssessmentScore().getAcceleration());
+            performanceDto.setIntelligence(tool.getAssessment().getAssessmentScore().getIntelligence());
+            performanceDto.setExperience(tool.getAssessment().getAssessmentScore().getExperience());
+            performanceDto.setValue(tool.getAssessment().getAssessmentScore().getValue());
+            performanceDtos.add(performanceDto);
+        }
+        return performanceDtos;
+    }
+
+
 
     private ToolDto toolDto(Tool tool) {
         ToolDto toolDto = new ToolDto();
@@ -59,12 +79,12 @@ public class ToolService {
         toolDto.setStatus(tool.getStatus());
         toolDto.setLastAssessment(tool.getLastAssessment());
         toolDto.setCategory(tool.getCategory());
-        toolDto.setAssessment(tool.getAssessment() == null ? null : new AssessmentDto());
+        toolDto.setAssessment(tool.getAssessment() == null ? null : new AssessmentDTO());
         setToolAssessment(toolDto.getAssessment(), tool.getAssessment());
         return toolDto;
     }
 
-    private void setToolAssessment(AssessmentDto assessmentDto, Assessment assessment) {
+    private void setToolAssessment(AssessmentDTO assessmentDto, Assessment assessment) {
         assessmentDto.setId(assessment.getId());
         assessmentDto.setScore(new AssessmentScore());
         setToolAssessmentScore(assessmentDto.getScore(), assessment.getAssessmentScore());

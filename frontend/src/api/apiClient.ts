@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Tool } from './types';
+import { Tool, PerformanceData } from './types';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ;
 
@@ -31,5 +31,10 @@ export const toolsApi = {
 
     deleteTool: async (id: string): Promise<void> => {
         await axios.delete(`${API_BASE_URL}/tools/${id}`);
+    },
+    
+    performance: async(): Promise<PerformanceData[]> => {
+        const response =  await axios.get(`${API_BASE_URL}/tools/performances`);
+        return response.data;
     }
 };

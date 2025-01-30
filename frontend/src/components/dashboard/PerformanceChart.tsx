@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import {
   Paper,
   Typography,
@@ -9,10 +9,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import {
   InfoOutlined as InfoIcon,
+  RefreshOutlined as RefreshIcon
 } from '@mui/icons-material';
 import {
   BarChart,
@@ -25,90 +28,8 @@ import {
   Legend,
   Tooltip,
 } from 'recharts';
-
-interface PerformanceData {
-  id: string;
-  name: string;
-  total: number;
-  intelligence: number;
-  acceleration: number;
-  experience: number;
-  value: number;
-}
-
-interface BarConfig {
-  dataKey: string;
-  name: string;
-  fill: string;
-  stackId?: string;
-  maxValue?: number;
-}
-
-const performanceData: PerformanceData[] = [
-  {
-    id: 'github',
-    name: 'GitHub',
-    total: 98,
-    intelligence: 29.5,
-    acceleration: 29,
-    experience: 30,
-    value: 9.5
-  },
-  {
-    id: 'codiumai',
-    name: 'CodiumAI',
-    total: 96.7,
-    intelligence: 29,
-    acceleration: 29,
-    experience: 29,
-    value: 9.7
-  },
-  {
-    id: 'googlecloud',
-    name: 'Google Cloud',
-    total: 96.4,
-    intelligence: 29,
-    acceleration: 29.4,
-    experience: 28.5,
-    value: 9.5
-  },
-  {
-    id: 'tencentcloud',
-    name: 'Tencent Cloud',
-    total: 85,
-    intelligence: 25,
-    acceleration: 25.5,
-    experience: 26,
-    value: 8.5
-  },
-  {
-    id: 'gitlab',
-    name: 'GitLab',
-    total: 78,
-    intelligence: 24,
-    acceleration: 23,
-    experience: 23.5,
-    value: 7.5
-  },
-  {
-    id: 'codeium',
-    name: 'Codeium',
-    total: 65,
-    intelligence: 20,
-    acceleration: 19,
-    experience: 19.5,
-    value: 6.5
-  },
-  {
-    id: 'tabnine',
-    name: 'Tabnine',
-    total: 58.6,
-    intelligence: 18,
-    acceleration: 17.6,
-    experience: 17.5,
-    value: 5.5
-  }
-].sort((a, b) => b.total - a.total);
+import { toolsApi } from '../../api/apiClient';
+import { PerformanceData, BarConfig } from '../../api/types';
 
 const renderCustomTooltip = (props: any) => {
   const { active, payload } = props;
@@ -165,11 +86,36 @@ const PerformanceChart: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [viewMode, setViewMode] = useState<ViewMode>('total');
+  const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPerformanceData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await toolsApi.performance();
+      setPerformanceData(data.sort((a, b) => b.total - a.total));
+    } catch (err) {
+      setError('Failed to load performance data. Please try again.');
+      console.error('Error fetching performance data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPerformanceData();
+  }, []);
 
   const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
     if (newMode !== null) {
       setViewMode(newMode);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchPerformanceData();
   };
 
   const getBarData = (): BarConfig[] => {
@@ -207,6 +153,35 @@ const PerformanceChart: React.FC = () => {
       }
     ];
   };
+
+  if (isLoading) {
+    return (
+      <Paper sx={{ p: 3, m: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Paper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 3, m: 2 }}>
+        <Alert 
+          severity="error" 
+          action={
+            <IconButton
+              color="inherit"
+              size="small"
+              onClick={handleRefresh}
+            >
+              <RefreshIcon />
+            </IconButton>
+          }
+        >
+          {error}
+        </Alert>
+      </Paper>
+    );
+  }
 
   return (
     <Paper 

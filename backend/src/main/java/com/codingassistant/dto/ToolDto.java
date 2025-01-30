@@ -11,7 +11,7 @@ public class ToolDto {
     private String description;
     private LocalDate lastAssessment;
     private String category;
-    private AssessmentDto assessment;
+    private AssessmentDTO assessment;
 
     public long getId() {
         return id;
@@ -69,11 +69,11 @@ public class ToolDto {
         this.category = category;
     }
 
-    public AssessmentDto getAssessment() {
+    public AssessmentDTO getAssessment() {
         return assessment;
     }
 
-    public void setAssessment(AssessmentDto assessment) {
+    public void setAssessment(AssessmentDTO assessment) {
         this.assessment = assessment;
     }
 }

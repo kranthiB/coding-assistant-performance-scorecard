@@ -36,6 +36,11 @@ public class ToolController {
         return ResponseEntity.ok(toolService.getAllTools());
     }
 
+    @GetMapping("/performances")
+    public ResponseEntity<List<PerformanceDTO>> getToolsPerformance() {
+        return ResponseEntity.ok(toolService.getPerformances());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ToolDto> getToolById(@PathVariable Long id) {
         return ResponseEntity.ok(toolService.getToolDtoById(id));

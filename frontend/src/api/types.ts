@@ -29,3 +29,21 @@ export interface Tool {
     category: string;
     assessment: ToolAssessment;
 }
+
+export interface PerformanceData {
+    id: string;
+    name: string;
+    total: number;
+    intelligence: number;
+    acceleration: number;
+    experience: number;
+    value: number;
+  }
+  
+export interface BarConfig {
+    dataKey: string;
+    name: string;
+    fill: string;
+    stackId?: string;
+    maxValue?: number;
+  }
