@@ -2,7 +2,6 @@ package com.codingassistant.service;
 
 import com.codingassistant.dto.AssessmentCategoryDto;
 import com.codingassistant.dto.AssessmentDto;
-import com.codingassistant.dto.AssessmentScoreDto;
 import com.codingassistant.dto.ToolDto;
 import com.codingassistant.model.Assessment;
 import com.codingassistant.model.AssessmentCategory;
@@ -67,13 +66,13 @@ public class ToolService {
 
     private void setToolAssessment(AssessmentDto assessmentDto, Assessment assessment) {
         assessmentDto.setId(assessment.getId());
-        assessmentDto.setScore(new AssessmentScoreDto());
+        assessmentDto.setScore(new AssessmentScore());
         setToolAssessmentScore(assessmentDto.getScore(), assessment.getAssessmentScore());
         assessmentDto.setCategories(new ArrayList<>());
         setToolAssessmentCategories(assessmentDto.getCategories(), assessment.getCategories());
     }
 
-    private void setToolAssessmentScore(AssessmentScoreDto assessmentScoreDto, AssessmentScore assessmentScore) {
+    private void setToolAssessmentScore(AssessmentScore assessmentScoreDto, AssessmentScore assessmentScore) {
         assessmentScoreDto.setId(assessmentScore.getId());
         assessmentScoreDto.setAcceleration(assessmentScore.getAcceleration());
         assessmentScoreDto.setExperience(assessmentScore.getExperience());

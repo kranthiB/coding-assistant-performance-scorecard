@@ -1,15 +1,13 @@
 package com.codingassistant.dto;
 
-import com.codingassistant.model.AssessmentCategory;
 import com.codingassistant.model.AssessmentScore;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public class AssessmentDto {
 
     private long id;
-    private AssessmentScoreDto score;
+    private AssessmentScore score;
     private List<AssessmentCategoryDto>  categories;
 
     public long getId() {
@@ -20,11 +18,11 @@ public class AssessmentDto {
         this.id = id;
     }
 
-    public AssessmentScoreDto getScore() {
+    public AssessmentScore getScore() {
         return score;
     }
 
-    public void setScore(AssessmentScoreDto score) {
+    public void setScore(AssessmentScore score) {
         this.score = score;
     }
 

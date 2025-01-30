@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -24,9 +25,8 @@ import {
   Remove as MinusIcon,
   Cancel as XIcon
 } from '@mui/icons-material';
-import type { Tool, ToolScore, CategoryScore, ToolAssessment } from '../../api/types';
-
-
+import type { Tool, CategoryScore } from '../../api/types';
+import { toolsApi } from '../../api/apiClient';
 
 // Update the navigation direction type
 type NavigationDirection = 'next' | 'previous' | 'tab-change';
@@ -725,6 +725,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   isSubmitting
 }) => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
   const [notes, setNotes] = useState('');
@@ -774,6 +775,11 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   }, [subcategory, currentTabs]);
 
   const getCurrentSubcategoryKey = () => {
+    // Special handling for 'value' category
+    if (category === 'value') {
+      return 'value';
+    }
+    
     return subcategory
       .split('-')
       .map((word, index) => 
@@ -809,7 +815,6 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
       console.error(`No criteria found for category: ${category}`);
       return null;
     }
-
     const tabId = currentTabs[activeTab]?.toLowerCase().replace(/\s+/g, '-');
     if (!tabId) {
       console.error(`No tab ID generated for active tab index: ${activeTab}`);
@@ -973,6 +978,9 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   const handleSubmit = async () => {
     const subcategoryKey = getCurrentSubcategoryKey();
     const currentScore = allScores[category]?.[subcategoryKey] || 0;
+
+    console.log('allScores')
+    console.log(allScores)
     
     if (currentScore === 0) {
       setError('Please provide a score before proceeding');
@@ -1028,8 +1036,27 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
           lastAssessment: new Date().toISOString()
         };
 
-        // Submit final assessment data
-        await onScoreSubmit(currentScore, notes);
+        console.log(updatedToolDetails)
+
+        try {
+          // Make API call to update tool details
+          await toolsApi.updateTool(toolDetails.id, updatedToolDetails);
+          
+          // Submit final assessment data
+          await onScoreSubmit(currentScore, notes);
+          
+          // Navigate back to dashboard or show success message
+          navigate('/', { 
+            state: { 
+              assessmentCompleted: true,
+              toolId: toolDetails.id 
+            }
+          });
+        } catch (apiError) {
+          console.error('Error updating tool via API:', apiError);
+          setError('Failed to save assessment. Please try again.');
+          throw apiError; // Re-throw to be caught by outer catch block
+        }
       }
     } catch (error) {
       console.error('Error submitting assessment:', error);
@@ -1155,7 +1182,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
                       )}
                       <Button
                         variant="contained"
-                        onClick={handleNext}
+                        onClick={navigationState.isLastSection ? handleSubmit : handleNext}
                         disabled={isSubmitting}
                         startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
                       >
