@@ -202,7 +202,7 @@ const PerformanceChart: React.FC = () => {
               size="small"
             >
               <ToggleButton value="detailed">
-                Component Scores
+                Total Scores
               </ToggleButton>
             </ToggleButtonGroup>
             

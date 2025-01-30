@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Tool, PerformanceData } from './types';
+import { Tool, PerformanceData, NoteData} from './types';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ;
 
@@ -24,7 +24,7 @@ export const toolsApi = {
         return response.data;
     },
 
-    updateTool: async (id: string, scores: Partial<Record<string, Record<string, number>>>, notes: Record<string, Record<string, string>>): Promise<Tool> => {
+    updateTool: async (id: string, scores: Partial<Record<string, Record<string, number>>>, notes: Record<string, NoteData>): Promise<Tool> => {
         const scoresAndNotes = {
             "scores": scores,
             "notes": notes

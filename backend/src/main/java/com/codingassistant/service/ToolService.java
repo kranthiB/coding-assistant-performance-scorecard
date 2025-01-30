@@ -106,6 +106,7 @@ public class ToolService {
             assessmentCategoryDto.setId(assessmentCategory.getId());
             assessmentCategoryDto.setName(assessmentCategory.getName());
             assessmentCategoryDto.setScore(assessmentCategory.getScore());
+            assessmentCategoryDto.setNote(assessmentCategory.getNote());
             assessmentCategoryDtos.add(assessmentCategoryDto);
         });
     }

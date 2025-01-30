@@ -25,7 +25,7 @@ import {
   Remove as MinusIcon,
   Cancel as XIcon
 } from '@mui/icons-material';
-import type { Tool, CategoryScore } from '../../api/types';
+import type { Tool, NoteData, CategoryScore, AccelerationNote, ExperienceNote, IntelligenceNote, ValueNote } from '../../api/types';
 import { toolsApi } from '../../api/apiClient';
 
 // Update the navigation direction type
@@ -751,26 +751,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
-  const [allNotes, setAllNotes] = useState<CategoryNotes>({
-    intelligence: {
-      autonomy: '',
-      outputQuality: '',
-      contextAwareness: ''
-    },
-    acceleration: {
-      capabilities: '',
-      iterationSize: '',
-      iterationSpeed: ''
-    },
-    experience: {
-      flexibility: '',
-      reliability: '',
-      easeOfUse: ''
-    },
-    value: {
-      value: ''
-    }
-  });
+  const [allNotes, setAllNotes] = useState<Record<string, NoteData>>({});
   const [currentNote, setCurrentNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const currentTabs = categoryTabs[category as keyof typeof categoryTabs] || [];
@@ -792,17 +773,53 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     const initialNotes = { ...allNotes };
     
     toolDetails.assessment.categories.forEach(categoryData => {
+
+      function getNoteType(noteData: NoteData): string {
+        if ('capabilities' in noteData) return 'acceleration';
+        if ('flexibility' in noteData) return 'experience';
+        if ('autonomy' in noteData) return 'intelligence';
+        if ('value' in noteData) return 'value';
+        return 'unknown';
+      }
+
+      const parseNestedJson = (jsonString: string) => {
+        // Remove the extra quotes around the inner object
+        const fixedString = jsonString.replace(/"\{/g, '{').replace(/\}"/g, '}');
+        return JSON.parse(fixedString);
+      };
+
       try {
-        const parsedData = JSON.parse(categoryData.score);
         const categoryName = categoryData.name.toLowerCase() as keyof CategoryNotes;
-        initialScores[categoryName] = parsedData.score || {};
-        
-        if (parsedData.notes && typeof parsedData.notes === 'object') {
-          initialNotes[categoryName] = {
-            ...initialNotes[categoryName],
-            ...parsedData.notes
-          };
+          //const parsedNote = parseNoteData(categoryData);
+          if (categoryData.note) {
+            const parsedNote = parseNestedJson(categoryData.note);
+            const noteType = getNoteType(parsedNote.note);
+            switch(noteType) {
+              case 'acceleration':
+                  const performanceNote = parsedNote.note as AccelerationNote;
+                  initialNotes[categoryName] = performanceNote;
+                  break;
+              case 'experience':
+                  const usabilityNote = parsedNote.note as ExperienceNote;
+                  initialNotes[categoryName] = usabilityNote;
+                  break;
+              case 'intelligence':
+                  const intelligenceNote = parsedNote.note as IntelligenceNote;
+                  initialNotes[categoryName] = intelligenceNote;
+                  break;
+              case 'value':
+                  const valueNote = parsedNote.note as ValueNote;
+                  initialNotes[categoryName] = valueNote;
+                  break;
+              default:
+                  console.error('Unknown note type');
+            }
+        } else {
+          initialScores[categoryName] = {};
         }
+        
+        const parsedScoreData = JSON.parse(categoryData.score);
+        initialScores[categoryName] = parsedScoreData.score || {};
       } catch (e) {
         console.error(`Error parsing category data for ${categoryData.name}:`, e);
       }
@@ -813,8 +830,9 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   
     // Set initial note for current subcategory
     const subcategoryKey = getSubcategoryKey(subcategory);
-    const categoryKey = category as keyof CategoryNotes;
-    setCurrentNote(initialNotes[categoryKey]?.[subcategoryKey] || '');
+    const categoryKey = category as keyof typeof initialNotes;
+    const currentNoteValue = initialNotes[categoryKey]?.[subcategoryKey as keyof NoteData];
+    setCurrentNote(currentNoteValue || '');
   }, [toolDetails.assessment.categories, category, subcategory]);
 
   // Update active tab when subcategory changes
@@ -965,7 +983,8 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
       const subcategoryKey = getSubcategoryKey(newSubcategoryId);
       const categoryKey = category as keyof CategoryNotes;
       setActiveTab(newValue);
-      setCurrentNote(allNotes[categoryKey]?.[subcategoryKey] || '');
+      const newNote = allNotes[categoryKey]?.[subcategoryKey as keyof NoteData] || '';
+      setCurrentNote(newNote);
       onNavigate('tab-change');
     }
   };
@@ -1007,10 +1026,6 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
 
     try {
-      console.log("all scores");
-      console.log(allScores);
-      console.log("all notes");
-      console.log(allNotes);
 
       // Make API call to update tool details
       await toolsApi.updateTool(toolDetails.id, allScores, allNotes);
@@ -1078,7 +1093,7 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
 
           return (
             <TabPanel key={index} value={activeTab} index={index}>
-              <Stack spacing={4}>
+              <Stack>
                 {/* Evaluation Section */}
                 <Box>
                   <Typography variant="h6" gutterBottom>

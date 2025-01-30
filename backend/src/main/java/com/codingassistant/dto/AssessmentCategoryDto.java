@@ -7,6 +7,7 @@ public class AssessmentCategoryDto {
     private long id;
     private String name;
     private String score;
+    private String note;
 
     public long getId() {
         return id;
@@ -30,5 +31,13 @@ public class AssessmentCategoryDto {
 
     public void setScore(String score) {
         this.score = score;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
     }
 }

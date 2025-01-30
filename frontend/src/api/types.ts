@@ -11,8 +11,35 @@ export interface CategoryScore {
     id: number;
     name: string;
     score: string;
+    note: string;
+}
+
+// Interfaces for different note structures
+export interface AccelerationNote {
+    capabilities: string;
+    iterationSize: string;
+    iterationSpeed: string;
+}
+
+export interface ExperienceNote {
+    flexibility: string;
+    reliability: string;
+    easeOfUse: string;
+}
+
+export interface IntelligenceNote {
+    autonomy: string;
+    outputQuality: string;
+    contextAwareness: string;
+}
+
+export interface ValueNote {
+    value: string;
 }
   
+export type NoteData = AccelerationNote | IntelligenceNote | ExperienceNote | ValueNote;
+
+
 export interface ToolAssessment {
     id: number;
     score: ToolScore;
