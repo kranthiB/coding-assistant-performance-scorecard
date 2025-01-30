@@ -55,13 +55,14 @@ public class ToolController {
     }
 
     private void updateScores(AssessmentScoreDTO assessmentScoreDTO, Assessment assessment) throws JsonProcessingException {
-        updateAccelerationScore(assessmentScoreDTO.getAcceleration(), assessment);
-        updateIntelligenceScore(assessmentScoreDTO.getIntelligence(), assessment);
-        updateExperienceScore(assessmentScoreDTO.getExperience(), assessment);
-        updateValueScore(assessmentScoreDTO.getValue(), assessment);
+        int totalScore = updateAccelerationScore(assessmentScoreDTO.getAcceleration(), assessment) +
+                updateIntelligenceScore(assessmentScoreDTO.getIntelligence(), assessment)  +
+                updateExperienceScore(assessmentScoreDTO.getExperience(), assessment) +
+                updateValueScore(assessmentScoreDTO.getValue(), assessment);
+        assessment.getAssessmentScore().setTotal(totalScore);
     }
 
-    private void updateAccelerationScore(AccelerationScoreDTO accelerationScoreDTO, Assessment assessment) throws JsonProcessingException {
+    private int updateAccelerationScore(AccelerationScoreDTO accelerationScoreDTO, Assessment assessment) throws JsonProcessingException {
         int iterationSize = accelerationScoreDTO.getIterationSize();
         int iterationSpeed = accelerationScoreDTO.getIterationSpeed();
         int capabilities = accelerationScoreDTO.getCapabilities();
@@ -72,9 +73,10 @@ public class ToolController {
                 .findFirst()
                 .orElse(new AssessmentCategory());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(accelerationScoreDTO)));
+        return accelerationScore;
     }
 
-    private void updateIntelligenceScore(IntelligenceScoreDTO intelligenceScoreDTO, Assessment assessment) throws JsonProcessingException {
+    private int updateIntelligenceScore(IntelligenceScoreDTO intelligenceScoreDTO, Assessment assessment) throws JsonProcessingException {
         int contextAwareness = intelligenceScoreDTO.getContextAwareness();
         int outputQuality = intelligenceScoreDTO.getOutputQuality();
         int autonomy = intelligenceScoreDTO.getAutonomy();
@@ -85,9 +87,10 @@ public class ToolController {
                .findFirst()
                .orElse(new AssessmentCategory());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(intelligenceScoreDTO)));
+        return intelligenceScore;
     }
 
-    private void updateExperienceScore(ExperienceScoreDTO experienceScoreDTO, Assessment assessment) throws JsonProcessingException {
+    private int updateExperienceScore(ExperienceScoreDTO experienceScoreDTO, Assessment assessment) throws JsonProcessingException {
         int easeOfUse = experienceScoreDTO.getEaseOfUse();
         int flexibility = experienceScoreDTO.getFlexibility();
         int reliability = experienceScoreDTO.getReliability();
@@ -97,14 +100,16 @@ public class ToolController {
                 .filter(c -> c.getName().equals("Experience"))
                .findFirst().orElse(new AssessmentCategory());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(experienceScoreDTO)));
+        return experienceScore;
     }
 
-    private void updateValueScore(ValueScoreDTO valueScoreDTO, Assessment assessment) throws JsonProcessingException {
+    private int updateValueScore(ValueScoreDTO valueScoreDTO, Assessment assessment) throws JsonProcessingException {
         int valueScore = valueScoreDTO.getValue();
         assessment.getAssessmentScore().setValue(valueScore);
         AssessmentCategory category = assessment.getCategories().stream()
                 .filter(c -> c.getName().equals("Value"))
                 .findFirst().orElse(new AssessmentCategory());
         category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(valueScoreDTO)));
+        return valueScore;
     }
 }
