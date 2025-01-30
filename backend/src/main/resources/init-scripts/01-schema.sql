@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS assessment_categories (
     id SERIAL PRIMARY KEY,
     assessment_id INTEGER NOT NULL,
     name VARCHAR(50) NOT NULL,
-    score JSONB NOT NULL,
+    score TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (assessment_id) REFERENCES assessments(id) ON DELETE CASCADE
 );

@@ -978,9 +978,6 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
   const handleSubmit = async () => {
     const subcategoryKey = getCurrentSubcategoryKey();
     const currentScore = allScores[category]?.[subcategoryKey] || 0;
-
-    console.log('allScores')
-    console.log(allScores)
     
     if (currentScore === 0) {
       setError('Please provide a score before proceeding');
@@ -988,79 +985,23 @@ const AssessmentContent: React.FC<AssessmentContentProps> = ({
     }
 
     try {
-      // Find and update the current category data
-      const categoryIndex = toolDetails.assessment.categories.findIndex(
-        cat => cat.name.toLowerCase() === category
-      );
-
-      if (categoryIndex !== -1) {
-        const updatedCategories = [...toolDetails.assessment.categories];
-        const currentCategory = updatedCategories[categoryIndex];
-        
-        // Prepare the final score data for the current category
-        const finalScore = {
-          notes,
-          score: allScores[category] || {}
-        };
-        
-        updatedCategories[categoryIndex] = {
-          ...currentCategory,
-          score: JSON.stringify(finalScore)
-        };
-
-        // Calculate the final category average
-        const categoryScores = Object.values(allScores[category] || {});
-        const categoryAverage = categoryScores.length > 0
-          ? categoryScores.reduce((a, b) => a + b, 0) / categoryScores.length
-          : 0;
-
-        // Update the assessment with final scores
-        const updatedAssessment = {
-          ...toolDetails.assessment,
-          categories: updatedCategories,
-          score: {
-            ...toolDetails.assessment.score,
-            [category]: categoryAverage,
-            total: calculateTotalScore(updatedCategories)
-          }
-        };
-
-        // Calculate the updated total score
-        const newTotalScore = calculateTotalScore(updatedCategories);
-
-        // Update tool details with the final assessment data
-        const updatedToolDetails = {
-          ...toolDetails,
-          assessment: updatedAssessment,
-          score: newTotalScore,
-          lastAssessment: new Date().toISOString()
-        };
-
-        console.log(updatedToolDetails)
-
-        try {
-          // Make API call to update tool details
-          await toolsApi.updateTool(toolDetails.id, updatedToolDetails);
-          
-          // Submit final assessment data
-          await onScoreSubmit(currentScore, notes);
-          
-          // Navigate back to dashboard or show success message
-          navigate('/', { 
-            state: { 
-              assessmentCompleted: true,
-              toolId: toolDetails.id 
-            }
-          });
-        } catch (apiError) {
-          console.error('Error updating tool via API:', apiError);
-          setError('Failed to save assessment. Please try again.');
-          throw apiError; // Re-throw to be caught by outer catch block
+      // Make API call to update tool details
+      await toolsApi.updateTool(toolDetails.id, allScores);
+      
+      // Submit final assessment data
+      //await onScoreSubmit(currentScore, notes);
+      
+      // Navigate back to dashboard or show success message
+      navigate('/', { 
+        state: { 
+          assessmentCompleted: true,
+          toolId: toolDetails.id 
         }
-      }
-    } catch (error) {
-      console.error('Error submitting assessment:', error);
-      setError('An error occurred while submitting your assessment. Please try again.');
+      });
+    } catch (apiError) {
+      console.error('Error updating tool via API:', apiError);
+      setError('Failed to save assessment. Please try again.');
+      throw apiError; // Re-throw to be caught by outer catch block
     }
   };
 

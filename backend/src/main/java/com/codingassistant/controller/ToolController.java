@@ -1,13 +1,11 @@
 package com.codingassistant.controller;
 
-import com.codingassistant.dto.AssessmentCategoryDto;
-import com.codingassistant.dto.AssessmentDto;
-import com.codingassistant.dto.ToolDto;
+import com.codingassistant.dto.*;
 import com.codingassistant.model.Assessment;
 import com.codingassistant.model.AssessmentCategory;
 import com.codingassistant.model.Tool;
 import com.codingassistant.service.ToolService;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Iterator;
 import java.util.List;
 
 
@@ -25,11 +22,13 @@ import java.util.List;
 public class ToolController {
 
     private static final Logger logger = LoggerFactory.getLogger(ToolController.class);
+    private static final String CATEGORY_SCORE_FORMAT = "{\"score\": %s }";
     private final ToolService toolService;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    public ToolController(ToolService toolService) {
+    public ToolController(@Autowired final ToolService toolService) {
         this.toolService = toolService;
+        this.objectMapper = new ObjectMapper();
     }
 
     @GetMapping
@@ -43,88 +42,64 @@ public class ToolController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ToolDto> updateTool(@PathVariable Long id, @RequestBody ToolDto toolDto) {
-        ToolDto updatedToolDto = new ToolDto();
+    public ResponseEntity<String> updateTool(@PathVariable Long id, @RequestBody AssessmentScoreDTO assessmentScoreDTO) throws JsonProcessingException {
         Tool tool = toolService.getToolById(id);
-        updateToolFields(tool, toolDto);
+        updateScores(assessmentScoreDTO, tool.getAssessment());
         toolService.saveTool(tool);
-        return ResponseEntity.ok(toolService.getToolDtoById(id));
+        return ResponseEntity.ok("SUCCESSFULLY UPDATED");
     }
 
-    private void updateToolFields(Tool tool, ToolDto toolDto) {
-        tool.setName(toolDto.getName());
-        tool.setScore(toolDto.getScore());
-        tool.setStatus(toolDto.getStatus());
-        tool.setCategory(toolDto.getCategory());
-        tool.setDescription(toolDto.getDescription());
-        updateAssessmentFields(tool.getAssessment(), toolDto.getAssessment());
+    private void updateScores(AssessmentScoreDTO assessmentScoreDTO, Assessment assessment) throws JsonProcessingException {
+        updateAccelerationScore(assessmentScoreDTO.getAcceleration(), assessment);
+        updateIntelligenceScore(assessmentScoreDTO.getIntelligence(), assessment);
+        updateExperienceScore(assessmentScoreDTO.getExperience(), assessment);
+        updateValueScore(assessmentScoreDTO.getValue(), assessment);
     }
 
-    private void updateAssessmentFields(Assessment assessment, AssessmentDto assessmentDto) {
-        int intelligenceScore = 0;
-        int accelerationScore = 0;
-        int experienceScore = 0;
-        int valueScore = 0;
-        int totalScore = 0;
-        for (AssessmentCategoryDto assessmentCategoryDto : assessmentDto.getCategories()) {
-            AssessmentCategory assessmentCategory = assessment.getCategories().stream()
-                   .filter(category -> category.getId().equals(assessmentCategoryDto.getId()))
-                   .findFirst()
-                   .orElse(new AssessmentCategory());
-            updateAssessmentCategoryFields(assessmentCategory, assessmentCategoryDto);
-            switch (assessmentCategoryDto.getName()) {
-                case "Intelligence":
-                    intelligenceScore += calculateTotalScore(assessmentCategoryDto.getScore());
-                    break;
-                case "Acceleration":
-                    accelerationScore += calculateTotalScore(assessmentCategoryDto.getScore());
-                    break;
-                case "Experience":
-                    experienceScore += calculateTotalScore(assessmentCategoryDto.getScore());
-                    break;
-                case "Value":
-                    valueScore += calculateTotalScore(assessmentCategoryDto.getScore());
-                    break;
-            }
-            assessment.getCategories().add(assessmentCategory);
-        }
-        totalScore = intelligenceScore + accelerationScore + experienceScore + valueScore;
-        assessment.getAssessmentScore().setIntelligence(intelligenceScore);
+    private void updateAccelerationScore(AccelerationScoreDTO accelerationScoreDTO, Assessment assessment) throws JsonProcessingException {
+        int iterationSize = accelerationScoreDTO.getIterationSize();
+        int iterationSpeed = accelerationScoreDTO.getIterationSpeed();
+        int capabilities = accelerationScoreDTO.getCapabilities();
+        int accelerationScore = iterationSize + iterationSpeed + capabilities;
         assessment.getAssessmentScore().setAcceleration(accelerationScore);
+        AssessmentCategory category = assessment.getCategories().stream()
+                .filter(c -> c.getName().equals("Acceleration"))
+                .findFirst()
+                .orElse(new AssessmentCategory());
+        category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(accelerationScoreDTO)));
+    }
+
+    private void updateIntelligenceScore(IntelligenceScoreDTO intelligenceScoreDTO, Assessment assessment) throws JsonProcessingException {
+        int contextAwareness = intelligenceScoreDTO.getContextAwareness();
+        int outputQuality = intelligenceScoreDTO.getOutputQuality();
+        int autonomy = intelligenceScoreDTO.getAutonomy();
+        int intelligenceScore = contextAwareness + outputQuality + autonomy;
+        assessment.getAssessmentScore().setIntelligence(intelligenceScore);
+        AssessmentCategory category = assessment.getCategories().stream()
+               .filter(c -> c.getName().equals("Intelligence"))
+               .findFirst()
+               .orElse(new AssessmentCategory());
+        category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(intelligenceScoreDTO)));
+    }
+
+    private void updateExperienceScore(ExperienceScoreDTO experienceScoreDTO, Assessment assessment) throws JsonProcessingException {
+        int easeOfUse = experienceScoreDTO.getEaseOfUse();
+        int flexibility = experienceScoreDTO.getFlexibility();
+        int reliability = experienceScoreDTO.getReliability();
+        int experienceScore = easeOfUse + flexibility + reliability;
         assessment.getAssessmentScore().setExperience(experienceScore);
+        AssessmentCategory category = assessment.getCategories().stream()
+                .filter(c -> c.getName().equals("Experience"))
+               .findFirst().orElse(new AssessmentCategory());
+        category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(experienceScoreDTO)));
+    }
+
+    private void updateValueScore(ValueScoreDTO valueScoreDTO, Assessment assessment) throws JsonProcessingException {
+        int valueScore = valueScoreDTO.getValue();
         assessment.getAssessmentScore().setValue(valueScore);
-        assessment.getAssessmentScore().setTotal(totalScore);
-
-    }
-
-    private void updateAssessmentCategoryFields(AssessmentCategory assessmentCategory, AssessmentCategoryDto assessmentCategoryDto) {
-        assessmentCategory.setName(assessmentCategoryDto.getName());
-        assessmentCategory.setScore(assessmentCategoryDto.getScore());
-    }
-
-    private int calculateTotalScore(String jsonString) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode rootNode = mapper.readTree(jsonString);
-            JsonNode scoreNode = rootNode.get("score");
-
-            if (scoreNode == null || !scoreNode.isObject()) {
-                return 0;
-            }
-
-            int total = 0;
-            Iterator<JsonNode> scoreValues = scoreNode.elements();
-            while (scoreValues.hasNext()) {
-                JsonNode value = scoreValues.next();
-                if (value.isNumber()) {
-                    total += value.asInt();
-                }
-            }
-
-            return total;
-        } catch (Exception e) {
-            logger.error("Error parsing JSON score: " + e.getMessage(), e);
-            return 0;
-        }
+        AssessmentCategory category = assessment.getCategories().stream()
+                .filter(c -> c.getName().equals("Value"))
+                .findFirst().orElse(new AssessmentCategory());
+        category.setScore(String.format(CATEGORY_SCORE_FORMAT, objectMapper.writeValueAsString(valueScoreDTO)));
     }
 }

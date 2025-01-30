@@ -1,6 +1,8 @@
 package com.codingassistant.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -25,7 +27,7 @@ public class AssessmentCategory {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "score", columnDefinition = "jsonb")
+    @Column(name = "score")
     private String score;
 
     @Column(name = "created_at")
